@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CraftCanvas: The Texture Forge</title>
+    <title>CraftCanvas - Texture Pack Editor</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,54 +14,112 @@
 
 <!-- Header Bar -->
 <div id="header-bar">
-    <div class="header-title">CraftCanvas Studio</div>
-    <div class="header-credits">
-        <a href="https://github.com/Saphire2415/CraftCanvas" target="_blank">GitHub</a>
-        &nbsp;|&nbsp; Made with ❤️
+    <div class="header-left">
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div class="header-title">
+                CraftCanvas<br>Texture Editor
+            </div>
+        </div>
+    </div>
+    <div class="header-right">
+        <a href="https://github.com/Saphire2415/CraftCanvas" target="_blank" class="header-link">Repository</a>
+        <span class="header-divider">|</span>
+        <span class="header-credit">by Saphire2415</span>
     </div>
 </div>
 
 <!-- Main Container -->
 <div id="main-container">
-    <!-- Project Sidebar -->
-    <div id="project-sidebar">
-        <div id="projects-header">PROJECTS</div>
-        <div id="projects-list"></div>
-        <button class="mc-btn" id="new-project-btn" style="margin: 8px; width: calc(100% - 16px);">+ NEW</button>
+    <!-- Left Sidebar Tools -->
+    <div id="left-sidebar">
+        <div class="sidebar-section">
+            <div class="sidebar-title">Tools</div>
+            <div class="tools-grid">
+                <button class="tool-btn active" onclick="setTool('brush')">Brush</button>
+                <button class="tool-btn" onclick="setTool('eraser')">Erase</button>
+                <button class="tool-btn" onclick="setTool('fill')">Fill</button>
+                <button class="tool-btn" onclick="setTool('pick')">Pick</button>
+            </div>
+        </div>
+        <div class="sidebar-section" style="flex: 1; overflow-y: auto;">
+            <div class="sidebar-title">Projects</div>
+            <div id="projects-mini-list" style="font-size: 7px; color: #ccc; padding: 5px;"></div>
+        </div>
     </div>
 
     <!-- Asset Drawer -->
     <div id="drawer" class="closed">
         <div id="drawer-header">
-            <h2 style="margin: 0 0 15px 0; font-size: 11px; text-shadow: var(--mc-text-shadow); text-align: center; color: #aaa;">ASSETS</h2>
+            <h2>Asset Library</h2>
             <input type="file" id="pack-upload" accept=".zip" style="display: none;">
-            <button class="mc-btn" style="width: 100%;" onclick="document.getElementById('pack-upload').click()">Load Pack</button>
+            <button class="mc-btn" style="width: 100%; margin-top: 8px; font-size: 8px;" onclick="document.getElementById('pack-upload').click()">Load Pack</button>
         </div>
         <div id="drawer-content">
-            <input type="text" id="texture-search" class="mc-input" placeholder="Search..." oninput="searchTextures()">
+            <input type="text" id="texture-search" class="mc-input" placeholder="Search" oninput="searchTextures()" style="margin-bottom: 8px; width: 100%;">
             <div id="texture-grid-target" class="texture-grid"></div>
         </div>
     </div>
 
-    <!-- Workspace -->
+    <!-- Main Workspace -->
     <div id="main-workspace">
         <div id="app-header-container">
-            <img id="app-title-img" src="title.png" alt="CraftCanvas Title" onerror="handleTitleImageFallback()">
+            <img id="app-title-img" src="title.png" alt="Title" onerror="handleTitleImageFallback()">
         </div>
         
+        <div class="top-toolbar">
+            <label style="font-size: 8px; color: #ffff55;">Brush:</label>
+            <select id="brush-size-select" class="mc-input" style="width: 60px;" onchange="updateBrushSize()">
+                <option value="1">1x1</option>
+                <option value="2">2x2</option>
+                <option value="3">3x3</option>
+                <option value="4">4x4</option>
+            </select>
+            <button class="mc-btn" onclick="openSettingsModal()" style="min-width: 40px;">Set</button>
+        </div>
+
         <div id="canvas-frame">
             <canvas id="editor-canvas"></canvas>
         </div>
 
-        <div class="toolbar">
+        <div class="bottom-toolbar">
             <div class="color-preview-wrapper">
                 <div id="color-indicator"></div>
                 <input type="color" id="color-picker" value="#ff0000" onchange="updateColor(this.value)">
             </div>
-            <button class="mc-btn" id="btn-brush" onclick="setTool('brush')" style="border-color: #fff;">BRUSH</button>
-            <button class="mc-btn" id="btn-eraser" onclick="setTool('eraser')">ERASER</button>
-            <button class="mc-btn" onclick="openSettingsModal()">⚙</button>
-            <button class="mc-btn" onclick="exportPack()" style="background:#55ff55; color:#000; text-shadow:none;">EXPORT</button>
+            <button class="mc-btn" id="btn-brush" onclick="setTool('brush')" style="border-color: #fff;">Brush</button>
+            <button class="mc-btn" id="btn-eraser" onclick="setTool('eraser')">Eraser</button>
+            <button class="mc-btn export" onclick="exportPack()">Export</button>
+        </div>
+    </div>
+
+    <!-- Right Sidebar Properties -->
+    <div id="right-sidebar">
+        <div class="property-section">
+            <div class="sidebar-title">Properties</div>
+            <div class="property-item">
+                <span class="property-label">Canvas:</span>
+                <div class="property-value" id="canvas-size">0x0</div>
+            </div>
+            <div class="property-item">
+                <span class="property-label">Tool:</span>
+                <div class="property-value" id="tool-display">Brush</div>
+            </div>
+            <div class="property-item">
+                <span class="property-label">Color:</span>
+                <div id="color-display" style="width: 100%; height: 30px; border: 2px solid #444; background: #ff0000;"></div>
+            </div>
+        </div>
+        <div class="property-section">
+            <div class="sidebar-title">Grid</div>
+            <div class="property-item">
+                <span class="property-label">Show:</span>
+                <input type="checkbox" id="grid-toggle-checkbox" checked onchange="toggleGridLineStyle()" style="cursor: pointer;">
+            </div>
+            <div class="property-item">
+                <span class="property-label">Color:</span>
+                <input type="color" id="grid-color-picker" value="#444444" onchange="toggleGridLineStyle()" style="width: 100%; height: 25px; border: none; cursor: pointer;">
+            </div>
         </div>
     </div>
 </div>
@@ -69,15 +127,15 @@
 <!-- Menu Toggle -->
 <div class="mc-trigger">
     <button class="mc-btn" id="drawer-toggle-btn" onclick="toggleDrawer()">
-        <span id="open-lbl">MENU</span>
-        <span id="close-lbl" style="display: none;">✕</span>
+        <span id="open-lbl">Menu</span>
+        <span id="close-lbl" style="display: none;">X</span>
     </button>
 </div>
 
 <!-- Loading Modal -->
 <div id="loading-modal" class="modal hidden">
     <div class="modal-body" style="text-align: center;">
-        <h3 style="margin:0; font-size:12px; color: #ffff55;">Unzipping Assets...</h3>
+        <h3 style="margin:0; font-size:11px; color: #ffff55;">Loading Assets</h3>
         <div id="loading-bar-container"><div id="loading-bar-progress"></div></div>
     </div>
 </div>
@@ -85,16 +143,16 @@
 <!-- Settings Modal -->
 <div id="settings-modal" class="modal hidden">
     <div class="modal-body">
-        <h3 style="margin:0 0 20px 0; font-size:12px; text-shadow: var(--mc-text-shadow); text-align: center; color: #ffff55;">⚙ SETTINGS</h3>
+        <h3 style="margin:0 0 20px 0; font-size:11px; text-shadow: var(--mc-text-shadow); text-align: center; color: #ffff55;">Settings</h3>
         
         <div class="setting-row">
-            <label>Autosave (s):</label>
-            <input type="number" id="sync-interval-input" class="mc-input" style="width: 100px; margin: 0;" value="30" min="5">
+            <label>Autosave:</label>
+            <input type="number" id="sync-interval-input" class="mc-input" style="width: 80px;" value="30" min="5">
         </div>
 
         <div class="setting-row">
             <label>Brush Size:</label>
-            <select id="brush-size-select" class="mc-input" style="width: 100px; margin: 0;">
+            <select id="brush-size-setting" class="mc-input" style="width: 80px;">
                 <option value="1">1x1</option>
                 <option value="2">2x2</option>
                 <option value="3">3x3</option>
@@ -104,15 +162,15 @@
 
         <div class="setting-row">
             <label>Grid Overlay:</label>
-            <input type="checkbox" id="grid-toggle-checkbox" checked onchange="toggleGridLineStyle()">
+            <input type="checkbox" id="grid-toggle-setting" checked style="cursor: pointer;">
         </div>
 
         <div class="setting-row">
             <label>Grid Color:</label>
-            <input type="color" id="grid-color-picker" value="#444444" onchange="toggleGridLineStyle()">
+            <input type="color" id="grid-color-setting" value="#444444" style="width: 60px; height: 25px; border: none; cursor: pointer;">
         </div>
 
-        <button class="mc-btn" style="width:100%; margin-top: 15px;" onclick="closeSettingsModal()">APPLY</button>
+        <button class="mc-btn" style="width:100%; margin-top: 15px;" onclick="closeSettingsModal()">Apply</button>
     </div>
 </div>
 
