@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# Build artifacts
+dist/
+build/
+
+# Local storage backups
+*.bak
+*.backup
+
+# OS files
+Thumbs.db
