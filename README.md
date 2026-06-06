@@ -35,7 +35,8 @@ Below are previews of the textures currently supported in the studio:
 
 | Asset | Preview |
 | :--- | :--- |
-| **Command Block** | [View Texture](assets/minecraft/textures/block/command_block.png) |
+| **Pack** | [View Texture](pack.png) |
+| **Title** | .[View Texture](title.png) |
 | **Dirt Block** | [View Texture](dirt_background.png) |
 | **UI Drawer** | [View Texture](cobblestone_drawer.png) |
 
