@@ -12,67 +12,89 @@
 </head>
 <body>
 
-<div id="drawer" class="closed">
-    <div id="drawer-header">
-        <h2 style="margin: 0 0 15px 0; font-size: 11px; text-shadow: var(--mc-text-shadow); text-align: center; color: #aaa;">ASSETS BOX</h2>
-        <input type="file" id="pack-upload" accept=".zip" style="display: none;">
-        <button class="mc-btn" style="width: 100%;" onclick="document.getElementById('pack-upload').click()">
-            Load Resource Pack
-        </button>
-    </div>
-    <div id="drawer-content">
-        <input type="text" id="texture-search" class="mc-input" placeholder="Search files..." oninput="searchTextures()">
-        <div id="texture-grid-target" class="texture-grid"></div>
+<!-- Header Bar -->
+<div id="header-bar">
+    <div class="header-title">CraftCanvas Studio</div>
+    <div class="header-credits">
+        <a href="https://github.com/Saphire2415/CraftCanvas" target="_blank">GitHub Repo</a>
+        &nbsp;|&nbsp; Made with ❤️
     </div>
 </div>
 
+<!-- Main Container -->
+<div id="main-container">
+    <!-- Project Sidebar -->
+    <div id="project-sidebar">
+        <div id="projects-header">PROJECTS</div>
+        <div id="projects-list"></div>
+        <button class="mc-btn" id="new-project-btn" style="margin: 8px; width: calc(100% - 16px);">+ NEW</button>
+    </div>
+
+    <!-- Asset Drawer -->
+    <div id="drawer" class="closed">
+        <div id="drawer-header">
+            <h2 style="margin: 0 0 15px 0; font-size: 11px; text-shadow: var(--mc-text-shadow); text-align: center; color: #aaa;">ASSETS</h2>
+            <input type="file" id="pack-upload" accept=".zip" style="display: none;">
+            <button class="mc-btn" style="width: 100%;" onclick="document.getElementById('pack-upload').click()">Load Pack</button>
+        </div>
+        <div id="drawer-content">
+            <input type="text" id="texture-search" class="mc-input" placeholder="Search..." oninput="searchTextures()">
+            <div id="texture-grid-target" class="texture-grid"></div>
+        </div>
+    </div>
+
+    <!-- Workspace -->
+    <div id="main-workspace">
+        <div id="app-header-container">
+            <img id="app-title-img" src="assets/title.png" alt="CraftCanvas Title" onerror="handleTitleImageFallback()">
+        </div>
+        
+        <div id="canvas-frame">
+            <canvas id="editor-canvas"></canvas>
+        </div>
+
+        <div class="toolbar">
+            <div class="color-preview-wrapper">
+                <div id="color-indicator"></div>
+                <input type="color" id="color-picker" value="#ff0000" onchange="updateColor(this.value)">
+            </div>
+            <button class="mc-btn" id="btn-brush" onclick="setTool('brush')" style="border-color: #fff;">BRUSH</button>
+            <button class="mc-btn" id="btn-eraser" onclick="setTool('eraser')">ERASER</button>
+            <button class="mc-btn" onclick="openSettingsModal()">⚙</button>
+            <button class="mc-btn" onclick="exportPack()" style="background:#55ff55; color:#000; text-shadow:none;">EXPORT</button>
+        </div>
+    </div>
+</div>
+
+<!-- Menu Toggle -->
 <div class="mc-trigger">
     <button class="mc-btn" id="drawer-toggle-btn" onclick="toggleDrawer()">
         <span id="open-lbl">MENU</span>
-        <span id="close-lbl" style="display: none;">X</span>
+        <span id="close-lbl" style="display: none;">✕</span>
     </button>
 </div>
 
-<div id="main-workspace">
-    <div id="app-header-container">
-        <img id="app-title-img" src="assets/title.png" alt="CraftCanvas Title" onerror="handleTitleImageFallback()">
-    </div>
-    
-    <div id="canvas-frame">
-        <canvas id="editor-canvas"></canvas>
-    </div>
-
-    <div class="toolbar">
-        <div class="color-preview-wrapper">
-            <div id="color-indicator"></div>
-            <input type="color" id="color-picker" value="#ff0000" onchange="updateColor(this.value)">
-        </div>
-        <button class="mc-btn" id="btn-brush" onclick="setTool('brush')" style="border-color: #fff;">BRUSH</button>
-        <button class="mc-btn" id="btn-eraser" onclick="setTool('eraser')">ERASER</button>
-        <button class="mc-btn" onclick="openSettingsModal()">⚙</button>
-        <button class="mc-btn" onclick="exportPack()" style="background:#55ff55; color:#000; text-shadow:none;">EXPORT</button>
-    </div>
-</div>
-
+<!-- Loading Modal -->
 <div id="loading-modal" class="modal hidden">
     <div class="modal-body" style="text-align: center;">
-        <h3 style="margin:0; font-size:12px;">Unzipping Assets...</h3>
+        <h3 style="margin:0; font-size:12px; color: #ffff55;">Unzipping Assets...</h3>
         <div id="loading-bar-container"><div id="loading-bar-progress"></div></div>
     </div>
 </div>
 
+<!-- Settings Modal -->
 <div id="settings-modal" class="modal hidden">
     <div class="modal-body">
-        <h3 style="margin:0 0 20px 0; font-size:12px; text-shadow: var(--mc-text-shadow); text-align: center; color: #ffff55;">FORGE CONFIG</h3>
+        <h3 style="margin:0 0 20px 0; font-size:12px; text-shadow: var(--mc-text-shadow); text-align: center; color: #ffff55;">⚙ SETTINGS</h3>
         
         <div class="setting-row">
-            <label>Autosave Cycle (s):</label>
-            <input type="number" id="sync-interval-input" class="mc-input" style="width: 80px; margin: 0;" value="30" min="5">
+            <label>Autosave (s):</label>
+            <input type="number" id="sync-interval-input" class="mc-input" style="width: 100px; margin: 0;" value="30" min="5">
         </div>
 
         <div class="setting-row">
-            <label>Brush Width (px):</label>
-            <select id="brush-size-select" class="mc-input" style="width: 80px; margin: 0;">
+            <label>Brush Size:</label>
+            <select id="brush-size-select" class="mc-input" style="width: 100px; margin: 0;">
                 <option value="1">1x1</option>
                 <option value="2">2x2</option>
                 <option value="3">3x3</option>
@@ -81,16 +103,16 @@
         </div>
 
         <div class="setting-row">
-            <label>Display Grid Overlay:</label>
+            <label>Grid Overlay:</label>
             <input type="checkbox" id="grid-toggle-checkbox" checked onchange="toggleGridLineStyle()">
         </div>
 
         <div class="setting-row">
-            <label>Grid Accent Color:</label>
+            <label>Grid Color:</label>
             <input type="color" id="grid-color-picker" value="#444444" onchange="toggleGridLineStyle()">
         </div>
 
-        <button class="mc-btn" style="width:100%; margin-top: 10px;" onclick="closeSettingsModal()">Apply Config</button>
+        <button class="mc-btn" style="width:100%; margin-top: 15px;" onclick="closeSettingsModal()">APPLY</button>
     </div>
 </div>
 

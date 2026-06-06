@@ -1,41 +1,161 @@
+// Multi-Project Workspace System
+class Project {
+    constructor(name) {
+        this.id = Date.now().toString();
+        this.name = name || `Project_${this.id}`;
+        this.textures = {};
+        this.currentTexture = null;
+        this.createdAt = new Date();
+    }
+}
+
 // Global State
-let zipVirtualFileSystem = {}; 
-let currentActivePath = null;
+let projects = [];
+let currentProject = null;
 let selectedTool = 'brush';
 let currentColor = '#ff0000';
 let localAutosaveTimer = null;
-
 let showGridOverlay = true;
 let gridOverlayColor = '#444444';
 let activeBrushSize = 1;
+let isDrawing = false;
 
 const canvas = document.getElementById('editor-canvas');
 const ctx = canvas.getContext('2d');
 const drawer = document.getElementById('drawer');
 
-let isDrawing = false;
-
 /**
  * Initialize the application
  */
 function initializeApp() {
+    loadProjectsFromStorage();
     setupEventListeners();
+    renderProjectsList();
+    
+    if (projects.length === 0) {
+        createNewProject();
+    } else {
+        switchProject(projects[0].id);
+    }
+    
     localAutosaveTimer = setInterval(commitToAutosave, 30000);
+}
+
+/**
+ * Load projects from localStorage
+ */
+function loadProjectsFromStorage() {
+    const stored = localStorage.getItem('cc_projects');
+    if (stored) {
+        try {
+            const data = JSON.parse(stored);
+            projects = data.map(p => {
+                const proj = new Project(p.name);
+                proj.id = p.id;
+                proj.createdAt = p.createdAt;
+                return proj;
+            });
+        } catch (e) {
+            console.warn('Failed to load projects:', e);
+            projects = [];
+        }
+    }
+}
+
+/**
+ * Save projects to localStorage
+ */
+function saveProjectsToStorage() {
+    const data = projects.map(p => ({
+        id: p.id,
+        name: p.name,
+        createdAt: p.createdAt
+    }));
+    localStorage.setItem('cc_projects', JSON.stringify(data));
+}
+
+/**
+ * Create a new project
+ */
+function createNewProject() {
+    const name = prompt('Enter project name:', `Texture_Pack_${projects.length + 1}`);
+    if (!name) return;
+    
+    const project = new Project(name);
+    projects.push(project);
+    saveProjectsToStorage();
+    switchProject(project.id);
+    renderProjectsList();
+}
+
+/**
+ * Switch to a different project
+ */
+function switchProject(projectId) {
+    currentProject = projects.find(p => p.id === projectId);
+    if (!currentProject) return;
+    
+    clearCanvas();
+    renderProjectsList();
+    rebuildTextureBrowserGrid();
+}
+
+/**
+ * Delete a project
+ */
+function deleteProject(projectId) {
+    if (!confirm('Are you sure? This will delete the project.')) return;
+    
+    projects = projects.filter(p => p.id !== projectId);
+    saveProjectsToStorage();
+    
+    if (currentProject?.id === projectId) {
+        currentProject = projects.length > 0 ? projects[0] : null;
+        if (!currentProject) createNewProject();
+        else switchProject(currentProject.id);
+    }
+    
+    renderProjectsList();
+}
+
+/**
+ * Render projects list in sidebar
+ */
+function renderProjectsList() {
+    const list = document.getElementById('projects-list');
+    list.innerHTML = '';
+    
+    projects.forEach(project => {
+        const div = document.createElement('div');
+        div.className = `project-item ${currentProject?.id === project.id ? 'active' : ''}`;
+        div.innerHTML = `
+            <span class="project-name" title="${project.name}">${project.name}</span>
+            <span class="project-delete" onclick="event.stopPropagation(); deleteProject('${project.id}')">✕</span>
+        `;
+        div.onclick = () => switchProject(project.id);
+        list.appendChild(div);
+    });
+}
+
+/**
+ * Clear canvas
+ */
+function clearCanvas() {
+    canvas.width = 0;
+    canvas.height = 0;
 }
 
 /**
  * Setup all event listeners
  */
 function setupEventListeners() {
-    // File upload
     document.getElementById('pack-upload').addEventListener('change', handlePackUpload);
+    document.getElementById('new-project-btn').addEventListener('click', createNewProject);
     
-    // Canvas events
     canvas.addEventListener('mousedown', (e) => { isDrawing = true; applyPaintAction(e); });
     canvas.addEventListener('mousemove', (e) => { if (isDrawing) applyPaintAction(e); });
     window.addEventListener('mouseup', () => { if(isDrawing) { isDrawing = false; syncThumbnailPreview(); } });
     
-    // Touch events
     canvas.addEventListener('touchstart', (e) => { isDrawing = true; applyPaintAction(e); }, {passive: false});
     canvas.addEventListener('touchmove', (e) => { if (isDrawing) { e.preventDefault(); applyPaintAction(e); } }, {passive: false});
     window.addEventListener('touchend', () => { if(isDrawing) { isDrawing = false; syncThumbnailPreview(); } });
@@ -71,9 +191,8 @@ function openSettingsModal() {
 function closeSettingsModal() {
     const secs = parseInt(document.getElementById('sync-interval-input').value) || 30;
     
-    // Validate autosave interval
     if (secs < 5) {
-        alert("Autosave interval must be at least 5 seconds");
+        alert('Autosave interval must be at least 5 seconds');
         return;
     }
     
@@ -82,7 +201,7 @@ function closeSettingsModal() {
     
     activeBrushSize = parseInt(document.getElementById('brush-size-select').value) || 1;
     document.getElementById('settings-modal').classList.add('hidden');
-    if (currentActivePath) reRenderWorkspaceView();
+    if (currentProject?.currentTexture) reRenderWorkspaceView();
 }
 
 /**
@@ -91,25 +210,25 @@ function closeSettingsModal() {
 function toggleGridLineStyle() {
     showGridOverlay = document.getElementById('grid-toggle-checkbox').checked;
     gridOverlayColor = document.getElementById('grid-color-picker').value;
-    if (currentActivePath) reRenderWorkspaceView();
+    if (currentProject?.currentTexture) reRenderWorkspaceView();
 }
 
 /**
  * Handle pack file upload
  */
 async function handlePackUpload(e) {
-    if (!e.target.files.length) return;
+    if (!e.target.files.length || !currentProject) return;
     
     const file = e.target.files[0];
     const loadingModal = document.getElementById('loading-modal');
     const progressFill = document.getElementById('loading-bar-progress');
     
     loadingModal.classList.remove('hidden');
-    progressFill.style.width = "15%";
+    progressFill.style.width = '15%';
 
     try {
         const loadedZip = await JSZip.loadAsync(file);
-        zipVirtualFileSystem = {};
+        currentProject.textures = {};
         
         const totalFiles = Object.keys(loadedZip.files).length;
         let processedFiles = 0;
@@ -129,7 +248,7 @@ async function handlePackUpload(e) {
                 const oCtx = offscreenCanvas.getContext('2d');
                 oCtx.drawImage(sourceImageElement, 0, 0);
 
-                zipVirtualFileSystem[path] = {
+                currentProject.textures[path] = {
                     canvas: offscreenCanvas,
                     ctx: oCtx,
                     url: imgUrl,
@@ -141,21 +260,20 @@ async function handlePackUpload(e) {
             }
         }
         
-        progressFill.style.width = "100%";
+        progressFill.style.width = '100%';
         setTimeout(() => {
             loadingModal.classList.add('hidden');
             rebuildTextureBrowserGrid();
-            if (Object.keys(zipVirtualFileSystem).length > 0) {
-                loadTextureToWorkspace(Object.keys(zipVirtualFileSystem)[0]);
+            if (Object.keys(currentProject.textures).length > 0) {
+                loadTextureToWorkspace(Object.keys(currentProject.textures)[0]);
             }
         }, 300);
 
     } catch (err) {
-        alert("Error reading file: " + err.message);
+        alert('Error reading file: ' + err.message);
         loadingModal.classList.add('hidden');
     }
     
-    // Reset file input
     e.target.value = '';
 }
 
@@ -178,12 +296,14 @@ function rebuildTextureBrowserGrid() {
     const targetGrid = document.getElementById('texture-grid-target');
     targetGrid.innerHTML = '';
 
-    for (let path in zipVirtualFileSystem) {
-        const fileData = zipVirtualFileSystem[path];
+    if (!currentProject) return;
+
+    for (let path in currentProject.textures) {
+        const fileData = currentProject.textures[path];
         const name = path.split('/').pop();
         
         const card = document.createElement('div');
-        card.className = `texture-card ${currentActivePath === path ? 'active' : ''}`;
+        card.className = `texture-card ${currentProject.currentTexture === path ? 'active' : ''}`;
         card.dataset.path = path;
         card.innerHTML = `<img src="${fileData.url}" alt="${name}"><span>${name}</span>`;
         card.onclick = () => loadTextureToWorkspace(path);
@@ -205,16 +325,18 @@ function searchTextures() {
  * Load a texture to the workspace
  */
 function loadTextureToWorkspace(path) {
-    currentActivePath = path;
+    if (!currentProject) return;
+    
+    currentProject.currentTexture = path;
     document.querySelectorAll('.texture-card').forEach(c => c.classList.remove('active'));
     const activeCard = document.querySelector(`.texture-card[data-path="${path}"]`);
     if (activeCard) activeCard.classList.add('active');
 
-    const fileData = zipVirtualFileSystem[path];
+    const fileData = currentProject.textures[path];
+    if (!fileData) return;
+    
     canvas.width = fileData.canvas.width;
     canvas.height = fileData.canvas.height;
-    
-    // Lock dynamic aspect ratios directly to CSS properties to resolve scaling deformation
     canvas.style.aspectRatio = `${canvas.width} / ${canvas.height}`;
     
     reRenderWorkspaceView();
@@ -224,13 +346,15 @@ function loadTextureToWorkspace(path) {
  * Re-render the workspace view
  */
 function reRenderWorkspaceView() {
-    if (!currentActivePath) return;
-    const fileData = zipVirtualFileSystem[currentActivePath];
+    if (!currentProject?.currentTexture) return;
+    
+    const fileData = currentProject.textures[currentProject.currentTexture];
+    if (!fileData) return;
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.imageSmoothingEnabled = false;
     
-    // 1. Render Perfectly Symmetrical Transparent Checkerboard Pattern Background Blocks
+    // Render checkerboard
     const tileSize = 1; 
     for (let y = 0; y < canvas.height; y += tileSize) {
         for (let x = 0; x < canvas.width; x += tileSize) {
@@ -239,10 +363,9 @@ function reRenderWorkspaceView() {
         }
     }
 
-    // 2. Overlay Layer Texture Image Data
     ctx.drawImage(fileData.canvas, 0, 0);
 
-    // 3. Optional Overlay Pixel Isolation Lines
+    // Grid overlay
     if (showGridOverlay && canvas.width <= 128) {
         ctx.lineWidth = 0.03;
         ctx.strokeStyle = gridOverlayColor;
@@ -266,10 +389,9 @@ function reRenderWorkspaceView() {
  * Apply paint action at coordinates
  */
 function applyPaintAction(e) {
-    if (!currentActivePath) return;
+    if (!currentProject?.currentTexture) return;
 
     const rect = canvas.getBoundingClientRect();
-    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -277,7 +399,7 @@ function applyPaintAction(e) {
     const targetPixelY = Math.floor(((clientY - rect.top) / rect.height) * canvas.height);
 
     if (targetPixelX >= 0 && targetPixelX < canvas.width && targetPixelY >= 0 && targetPixelY < canvas.height) {
-        const fileData = zipVirtualFileSystem[currentActivePath];
+        const fileData = currentProject.textures[currentProject.currentTexture];
         
         if (selectedTool === 'brush') {
             fileData.ctx.fillStyle = currentColor;
@@ -312,15 +434,15 @@ function updateColor(hex) {
  * Sync thumbnail preview after editing
  */
 function syncThumbnailPreview() {
-    if (!currentActivePath) return;
-    const fileData = zipVirtualFileSystem[currentActivePath];
+    if (!currentProject?.currentTexture) return;
     
+    const fileData = currentProject.textures[currentProject.currentTexture];
     fileData.canvas.toBlob((blob) => {
         if (!blob) return;
         const newUrl = URL.createObjectURL(blob);
         fileData.url = newUrl;
         
-        const cardImg = document.querySelector(`.texture-card[data-path="${currentActivePath}"] img`);
+        const cardImg = document.querySelector(`.texture-card[data-path="${currentProject.currentTexture}"] img`);
         if (cardImg) cardImg.src = newUrl;
     }, 'image/png');
 }
@@ -329,15 +451,15 @@ function syncThumbnailPreview() {
  * Commit current texture to autosave
  */
 function commitToAutosave() {
-    if (!currentActivePath) return;
-    const fileData = zipVirtualFileSystem[currentActivePath];
+    if (!currentProject?.currentTexture) return;
     
+    const fileData = currentProject.textures[currentProject.currentTexture];
     fileData.canvas.toBlob((blob) => {
         if (!blob) return;
         const reader = new FileReader();
         reader.readAsDataURL(blob);
         reader.onloadend = () => {
-            localStorage.setItem(`cc_save_file:${currentActivePath}`, reader.result);
+            localStorage.setItem(`cc_texture_${currentProject.id}_${currentProject.currentTexture}`, reader.result);
         };
     }, 'image/png');
 }
@@ -346,25 +468,23 @@ function commitToAutosave() {
  * Export the resource pack as ZIP
  */
 async function exportPack() {
-    if (Object.keys(zipVirtualFileSystem).length === 0) {
-        alert("No pack textures loaded.");
+    if (!currentProject || Object.keys(currentProject.textures).length === 0) {
+        alert('No textures in current project.');
         return;
     }
 
     const outputZipGenerator = new JSZip();
-    for (let path in zipVirtualFileSystem) {
-        const fileData = zipVirtualFileSystem[path];
+    for (let path in currentProject.textures) {
+        const fileData = currentProject.textures[path];
         const blobData = await new Promise(resolve => fileData.canvas.toBlob(resolve, 'image/png'));
         outputZipGenerator.file(path, blobData);
     }
 
-    const generatedArchiveBlob = await outputZipGenerator.generateAsync({type : "blob"});
+    const generatedArchiveBlob = await outputZipGenerator.generateAsync({type : 'blob'});
     const downloadAnchor = document.createElement('a');
     downloadAnchor.href = URL.createObjectURL(generatedArchiveBlob);
-    downloadAnchor.download = "forge_resource_pack.zip";
+    downloadAnchor.download = `${currentProject.name}_pack.zip`;
     downloadAnchor.click();
-    
-    // Cleanup
     URL.revokeObjectURL(downloadAnchor.href);
 }
 
