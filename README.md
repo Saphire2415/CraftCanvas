@@ -8,7 +8,7 @@
 ## 🎨 Overview
 **CraftCanvas Studio** is a powerful, web-based texture editing tool designed for Minecraft creators. Edit your block and item textures directly in your browser with real-time previewing and seamless resource pack compilation.
 
-![Title Logo](title.png)
+![Title Logo](pack.png)
 
 ---
 
